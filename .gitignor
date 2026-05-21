@@ -1,0 +1,18 @@
+# Java / Maven / Spring Boot
+target/
+*.class
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+
+# VS Code
+.vscode/
+
+# Environnement
+.env
+
+# OS
+.DS_Store
+Thumbs.db
