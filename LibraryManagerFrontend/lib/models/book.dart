@@ -14,6 +14,7 @@ class Book {
   final String shelfLocation;
   final int availableCopies;
   final int totalCopies;
+  bool isFavorite; // Removed final to allow modification in UI
 
   Book({
     required this.id,
@@ -31,25 +32,40 @@ class Book {
     required this.shelfLocation,
     required this.availableCopies,
     required this.totalCopies,
+    this.isFavorite = false,
   });
 
   factory Book.fromMap(Map<String, dynamic> map) {
     return Book(
-      id: map['BookId'],
+      id: map['BookId'] ?? 0,
       title: map['BookTitle'] ?? '',
-      author: 'Unknown author',
+      author: map['Authors'] ?? 'Unknown author',
       description: map['BookDescription'] ?? '',
       coverUrl: '',
-      genres: const [],
-      rating: 0,
+      genres: (map['Categories'] as String?)?.split(', ') ?? [],
+      rating: 4.0,
       reviewsCount: 0,
-      publisher: 'Unknown publisher',
+      publisher: map['Publishers'] ?? 'Unknown publisher',
       publicationYear: map['BookPublicationYear'] ?? 0,
       isbn: map['BookIsbn'] ?? '',
       language: map['BookLanguage'] ?? '',
       shelfLocation: map['BookShelf'] ?? '',
       availableCopies: map['BookTotalCopies'] ?? 0,
       totalCopies: map['BookTotalCopies'] ?? 0,
+      isFavorite: false,
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'BookId': id,
+      'BookTitle': title,
+      'BookIsbn': isbn,
+      'BookPublicationYear': publicationYear,
+      'BookTotalCopies': totalCopies,
+      'BookDescription': description,
+      'BookShelf': shelfLocation,
+      'BookLanguage': language,
+    };
   }
 }

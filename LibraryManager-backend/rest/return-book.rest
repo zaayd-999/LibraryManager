@@ -1,0 +1,6 @@
+POST http://localhost:3000/api/v1/library_system/return_book
+Content-Type: application/json
+
+{
+  "BookReservationId": 1
+}

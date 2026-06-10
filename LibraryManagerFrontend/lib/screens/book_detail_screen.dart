@@ -29,7 +29,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   }
 
   void _deleteBook() async {
-    // repository.deleteBook(widget.bookId);
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -49,21 +48,90 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     );
 
     if (confirm == true) {
-      // Logic to delete from DB would go here
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Book deleted")),
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+      
+      final success = await repository.deleteBook(widget.bookId);
+      
+      if (success) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text("Book deleted successfully")),
         );
-        Navigator.pop(context); // Go back after deletion
+        navigator.pop(true); // Go back after deletion
+      } else {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text("Failed to delete book")),
+        );
       }
     }
   }
 
-  void _modifyBook() {
-    // Logic to open edit form would go here
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Modify book feature coming soon")),
+  void _modifyBook() async {
+    final book = await _bookFuture;
+    if (book == null) return;
+
+    final titleController = TextEditingController(text: book.title);
+    final descriptionController = TextEditingController(text: book.description);
+    final yearController = TextEditingController(text: book.publicationYear.toString());
+    final isbnController = TextEditingController(text: book.isbn);
+    final copiesController = TextEditingController(text: book.totalCopies.toString());
+    final shelfController = TextEditingController(text: book.shelfLocation);
+    final languageController = TextEditingController(text: book.language);
+
+    bool? updated = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Modify Book"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: titleController, decoration: const InputDecoration(labelText: "Title")),
+              TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description"), maxLines: 3),
+              TextField(controller: yearController, decoration: const InputDecoration(labelText: "Year"), keyboardType: TextInputType.number),
+              TextField(controller: isbnController, decoration: const InputDecoration(labelText: "ISBN")),
+              TextField(controller: copiesController, decoration: const InputDecoration(labelText: "Total Copies"), keyboardType: TextInputType.number),
+              TextField(controller: shelfController, decoration: const InputDecoration(labelText: "Shelf")),
+              TextField(controller: languageController, decoration: const InputDecoration(labelText: "Language")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(context);
+              
+              final success = await repository.updateBook({
+                'BookId': widget.bookId,
+                'BookTitle': titleController.text,
+                'BookDescription': descriptionController.text,
+                'BookPublicationYear': int.tryParse(yearController.text) ?? book.publicationYear,
+                'BookIsbn': isbnController.text,
+                'BookTotalCopies': int.tryParse(copiesController.text) ?? book.totalCopies,
+                'BookShelf': shelfController.text,
+                'BookLanguage': languageController.text,
+              });
+              
+              navigator.pop(success);
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
     );
+
+    if (updated == true) {
+      setState(() {
+        _bookFuture = repository.getBookById(widget.bookId);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Book updated successfully")),
+        );
+      }
+    }
   }
 
   @override

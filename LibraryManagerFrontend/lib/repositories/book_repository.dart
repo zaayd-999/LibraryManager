@@ -1,27 +1,27 @@
 import '../models/book.dart';
-import '../services/database_service.dart';
+import '../services/book_service.dart';
 
 class BookRepository {
+  final BookService _bookService = BookService();
+
   Future<List<Book>> getBooks() async {
-    final db = await DatabaseService.database;
-
-    final result = await db.rawQuery(
-      'SELECT * FROM Book',
-    );
-
-    return result.map((row) => Book.fromMap(row)).toList();
+    return _bookService.getBooks();
   }
 
   Future<Book?> getBookById(int id) async {
-    final db = await DatabaseService.database;
+    final books = await _bookService.getBooks();
+    try {
+      return books.firstWhere((book) => book.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
 
-    final result = await db.rawQuery(
-      'SELECT * FROM Book WHERE BookId = ?',
-      [id],
-    );
+  Future<bool> deleteBook(int id) async {
+    return _bookService.deleteBook(id);
+  }
 
-    if (result.isEmpty) return null;
-
-    return Book.fromMap(result.first);
+  Future<bool> updateBook(Map<String, dynamic> bookData) async {
+    return _bookService.updateBook(bookData);
   }
 }
