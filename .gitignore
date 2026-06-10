@@ -1,0 +1,10 @@
+.env
+node_modules/
+package-lock.json
+.vscode/
+README.md
+dist/
+run.bat
+compile.bat
+test/
+nodemon.json

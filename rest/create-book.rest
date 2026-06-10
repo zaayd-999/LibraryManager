@@ -1,0 +1,17 @@
+POST http://localhost:3000/api/v1/library_system/create_book
+Content-Type: application/json
+
+{
+  "BookTitle": "Clean Architecture",
+  "AuthorFirstName": "Robert",
+  "AuthorLastName": "Martin",
+  "CategoryName": "Programming",
+  "PublisherFirstName": "Pearson",
+  "PublisherLastName": "Education",
+  "BookDescription": "A book about software architecture principles",
+  "BookShelf": "T2",
+  "BookLanguage": "English",
+  "BookPublicationYear": 2017,
+  "BookIsbn": "9780134494166",
+  "BookTotalCopies": 5
+}

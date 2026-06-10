@@ -1,0 +1,9 @@
+POST http://localhost:3000/api/v1/library_system/update_book
+Content-Type: application/json
+
+{
+  "BookId": 5,
+  "BookTitle": "Clean Architecture 2nd Edition",
+  "BookTotalCopies": 10,
+  "BookShelf": "T3"
+}
