@@ -3,30 +3,27 @@ import { HelpAPIStructure } from "../../../types/HelpStructure";
 import { Database } from "sqlite3";
 import { z } from "zod";
 
-const getBooksSchema = z.object({
+const getReservationsSchema = z.object({
+    reservationId: z.coerce.number().int().positive().optional(),
     bookId: z.coerce.number().int().positive().optional(),
-    title: z.string().optional(),
-    author: z.string().optional(),
-    publisher: z.string().optional(),
-    category: z.string().optional(),
-    collection: z.string().optional(),
-    language: z.string().optional(),
-    available: z.enum(["true", "false"]).optional(),
+    status: z.enum(["pending", "returned"]).optional(),
 
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
 
     sort: z
         .enum([
+            "BookReservationId",
             "BookId",
             "BookTitle",
-            "BookPublicationYear",
-            "BookTotalCopies",
-            "BookLanguage"
+            "Status",
+            "ReservedAt",
+            "DueDate",
+            "ReturnedAt"
         ])
-        .default("BookId"),
+        .default("ReservedAt"),
 
-    order: z.enum(["asc", "desc"]).default("asc"),
+    order: z.enum(["asc", "desc"]).default("desc"),
 });
 
 export async function execute(
@@ -34,7 +31,7 @@ export async function execute(
     res: Response,
     database: Database
 ): Promise<void> {
-    const result = getBooksSchema.safeParse(req.query);
+    const result = getReservationsSchema.safeParse(req.query);
 
     if (!result.success) {
         res.status(400).json({
@@ -47,46 +44,22 @@ export async function execute(
 
     const data = result.data;
 
-    let sql = "SELECT * FROM BookDetail WHERE 1=1";
+    let sql = "SELECT * FROM ReservationDetail WHERE 1=1";
     const params: any[] = [];
+
+    if (data.reservationId !== undefined) {
+        sql += " AND BookReservationId = ?";
+        params.push(data.reservationId);
+    }
 
     if (data.bookId !== undefined) {
         sql += " AND BookId = ?";
         params.push(data.bookId);
     }
 
-    if (data.title) {
-        sql += " AND BookTitle LIKE ?";
-        params.push(`%${data.title}%`);
-    }
-
-    if (data.author) {
-        sql += " AND Authors LIKE ?";
-        params.push(`%${data.author}%`);
-    }
-
-    if (data.publisher) {
-        sql += " AND Publishers LIKE ?";
-        params.push(`%${data.publisher}%`);
-    }
-
-    if (data.category) {
-        sql += " AND Categories LIKE ?";
-        params.push(`%${data.category}%`);
-    }
-
-    if (data.collection) {
-        sql += " AND Collections LIKE ?";
-        params.push(`%${data.collection}%`);
-    }
-
-    if (data.language) {
-        sql += " AND BookLanguage = ?";
-        params.push(data.language);
-    }
-
-    if (data.available === "true") {
-        sql += " AND BookTotalCopies > 0";
+    if (data.status !== undefined) {
+        sql += " AND Status = ?";
+        params.push(data.status);
     }
 
     const offset = (data.page - 1) * data.limit;
@@ -107,7 +80,7 @@ export async function execute(
 
         res.json({
             success: true,
-            books: rows,
+            reservations: rows,
             page: data.page,
             limit: data.limit,
         });
@@ -116,8 +89,8 @@ export async function execute(
 
 export const help: HelpAPIStructure = {
     router: "library_system",
-    host: "get_books",
-    description: "Get books with filters",
+    host: "get_reservations",
+    description: "Get reservations with filters",
     methode: "GET",
     version: "v1",
     active: true,

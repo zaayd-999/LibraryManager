@@ -1,0 +1,7 @@
+POST http://localhost:3000/api/v1/library_system/create_reservation
+Content-Type: application/json
+
+{
+  "BookId": 2,
+  "DurationDays": 14
+}

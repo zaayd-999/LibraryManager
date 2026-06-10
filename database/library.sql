@@ -188,11 +188,17 @@ BEGIN
 	WHERE BookReservationId = NEW.BookReservationId;
 END;
 
-CREATE TRIGGER IF NOT EXISTS trg_prevent_update_returned
+DROP TRIGGER IF EXISTS trg_prevent_update_returned;
+
+CREATE TRIGGER trg_prevent_update_returned
 BEFORE UPDATE ON BookReservation
 WHEN OLD.Status = 'returned'
+     AND NEW.Status != OLD.Status
 BEGIN
-	SELECT RAISE(ABORT, 'Cannot update a reservation that is already returned');
+    SELECT RAISE(
+        ABORT,
+        'Cannot modify a returned reservation'
+    );
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_reserved_at
@@ -322,3 +328,14 @@ INSERT INTO BookPublisher VALUES (1,1);
 INSERT INTO BookPublisher VALUES (2,2);
 INSERT INTO BookPublisher VALUES (3,3);
 INSERT INTO BookPublisher VALUES (4,1);
+
+CREATE TRIGGER IF NOT EXISTS trg_prevent_reserve_no_copies
+BEFORE INSERT ON BookReservation
+WHEN (
+    SELECT BookTotalCopies
+    FROM Book
+    WHERE BookId = NEW.BookId
+) <= 0
+BEGIN
+    SELECT RAISE(ABORT, 'No copies available for this book');
+END;
