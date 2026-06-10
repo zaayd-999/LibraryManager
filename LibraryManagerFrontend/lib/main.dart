@@ -1,6 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+
 import 'screens/home_page.dart';
+import 'screens/my_books/my_books_page.dart';
+import 'services/borrow_api.dart';
 
 void main() {
   runApp(const LibraryApp());
@@ -41,50 +44,47 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
-  final GlobalKey<NavigatorState> _homeNavigatorKey = GlobalKey<NavigatorState>();
+  int _borrowedCount = 0;
+
+  final List<Widget> _pages = [
+    const HomePage(),
+    const MyBooksPage(),
+    const Center(child: Text('Profile Page (To be created)')),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBorrowedCount();
+  }
+
+  Future<void> _loadBorrowedCount() async {
+    try {
+      final books = await BorrowApi.getBorrows();
+
+      setState(() {
+        _borrowedCount = books.length;
+      });
+    } catch (e) {
+      print(e);
+    }
+  }
 
   void _onItemTapped(int index) {
-    if (_selectedIndex == index && index == 0) {
-      _homeNavigatorKey.currentState?.popUntil((route) => route.isFirst);
-    }
     setState(() {
       _selectedIndex = index;
     });
+
+    if (index == 1) {
+      _loadBorrowedCount();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        
-        if (_selectedIndex == 0) {
-          final canPop = await _homeNavigatorKey.currentState?.maybePop() ?? false;
-          if (canPop) return;
-        }
-        
-        // If we can't pop internally, we could allow the app to exit or minimize.
-        // For simplicity in this context, we just don't handle the 'exit' here 
-        // which might require setting canPop: true under certain conditions.
-      },
-      child: Scaffold(
-        body: IndexedStack(
-          index: _selectedIndex,
-          children: [
-            Navigator(
-              key: _homeNavigatorKey,
-              onGenerateRoute: (settings) {
-                return MaterialPageRoute(
-                  builder: (context) => const HomePage(),
-                );
-              },
-            ),
-            const Center(child: Text('My Books Page (By Zaayd)')),
-            const Center(child: Text('Profile Page (To be created)')),
-          ],
-        ),
-        bottomNavigationBar: BottomNavigationBar(
+    return Scaffold(
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         selectedItemColor: const Color(0xFF0A7A8A),
@@ -98,12 +98,18 @@ class _MainNavigationState extends State<MainNavigation> {
           ),
           BottomNavigationBarItem(
             icon: Badge(
-              label: const Text('2', style: TextStyle(color: Colors.white)),
+              label: Text(
+                '$_borrowedCount',
+                style: const TextStyle(color: Colors.white),
+              ),
               backgroundColor: Colors.red,
               child: const Icon(Icons.menu_book_outlined),
             ),
             activeIcon: Badge(
-              label: const Text('2', style: TextStyle(color: Colors.white)),
+              label: Text(
+                '$_borrowedCount',
+                style: const TextStyle(color: Colors.white),
+              ),
               backgroundColor: Colors.red,
               child: const Icon(Icons.menu_book),
             ),
@@ -116,6 +122,6 @@ class _MainNavigationState extends State<MainNavigation> {
           ),
         ],
       ),
-    ));
+    );
   }
 }

@@ -1,7 +1,25 @@
 import 'package:flutter/material.dart';
-import '../models/book.dart';
-import '../services/book_service.dart';
-import 'book_detail_screen.dart';
+
+// Book Model
+class Book {
+  String id;
+  String title;
+  String author;
+  String genre;
+  bool isAvailable;
+  double rating;
+  bool isFavorite;
+
+  Book({
+    required this.id,
+    required this.title,
+    required this.author,
+    required this.genre,
+    this.isAvailable = true,
+    this.rating = 4.0,
+    this.isFavorite = false,
+  });
+}
 
 // Home Page
 class HomePage extends StatefulWidget {
@@ -13,7 +31,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isGridView = false; // starts as list view
-  final BookService _bookService = BookService();
 
   final Color _primaryTeal = const Color(0xFF0A7A8A);
   final List<String> _dbGenres = ['All Genres', 'Classic', 'Coming-of-Age', 'Drama', 'Dystopian', 'Fiction', 'Romance', 'Sci-Fi'];
@@ -23,30 +40,20 @@ class _HomePageState extends State<HomePage> {
   String _selectedAuthorFilter = 'All Authors';
   String _sortBy = 'Recently Added';
 
-  List<Book> books = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchBooks();
-  }
-
-  Future<void> _fetchBooks() async {
-    setState(() => _isLoading = true);
-    final fetchedBooks = await _bookService.getBooks();
-    setState(() {
-      books = fetchedBooks;
-      _isLoading = false;
-    });
-  }
+  // Mock data for test only
+  List<Book> books = [
+    Book(id: '1', title: 'The Catcher in the Rye', author: 'J.D. Salinger', genre: 'Classic', rating: 4.1, isAvailable: true),
+    Book(id: '2', title: 'The Alchemist', author: 'Paulo Coelho', genre: 'Fiction', rating: 4.4, isAvailable: true),
+    Book(id: '3', title: 'Valley of the Dolls', author: 'Jacqueline Susann', genre: 'Drama', rating: 3.8, isAvailable: false, isFavorite: true),
+    Book(id: '4', title: 'Brave New World', author: 'Aldous Huxley', genre: 'Dystopian', rating: 4.3, isAvailable: true),
+  ];
 
   List<Book> _getFilteredAndSortedBooks() {
     List<Book> filtered = books.where((book) {
       final matchesSearch = book.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           book.author.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesGenre = _selectedGenreFilter == 'All Genres' || book.genres.contains(_selectedGenreFilter);
-      final matchesAuthor = _selectedAuthorFilter == 'All Authors' || book.author.contains(_selectedAuthorFilter);
+      final matchesGenre = _selectedGenreFilter == 'All Genres' || book.genre == _selectedGenreFilter;
+      final matchesAuthor = _selectedAuthorFilter == 'All Authors' || book.author == _selectedAuthorFilter;
       return matchesSearch && matchesGenre && matchesAuthor;
     }).toList();
 
@@ -55,12 +62,13 @@ class _HomePageState extends State<HomePage> {
     } else if (_sortBy == 'From A to Z') {
       filtered.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
     }
+    // 'Recently Added' is the default list order
 
     return filtered;
   }
 
   List<String> _getAuthors() {
-    final authors = books.expand((b) => b.author.split(', ')).toSet().toList();
+    final authors = books.map((b) => b.author).toSet().toList();
     authors.sort();
     return ['All Authors', ...authors];
   }
@@ -69,11 +77,9 @@ class _HomePageState extends State<HomePage> {
   void _showAddBookDialog() {
     String selectedGenre = _dbGenres.first;
     final titleController = TextEditingController();
-    final authorFirstNameController = TextEditingController();
-    final authorLastNameController = TextEditingController();
+    final authorController = TextEditingController();
     final descriptionController = TextEditingController();
-    final publisherFirstNameController = TextEditingController();
-    final publisherLastNameController = TextEditingController();
+    final publisherController = TextEditingController();
     final yearController = TextEditingController();
     final isbnController = TextEditingController();
     final copiesController = TextEditingController();
@@ -95,39 +101,40 @@ class _HomePageState extends State<HomePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 24), // Spacer for centering
                         const Text('Add New Book', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 20, color: Colors.grey),
-                          onPressed: () => Navigator.pop(context),
+                        MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                            onPressed: () => Navigator.pop(context),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
                     _buildTextField('Title *', 'Book title', controller: titleController),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTextField('Author First Name *', 'First Name', controller: authorFirstNameController)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildTextField('Author Last Name *', 'Last Name', controller: authorLastNameController)),
-                      ],
-                    ),
+                    _buildTextField('Author *', 'Author name', controller: authorController),
 
+                    // Dropdown for Genres
                     const Text('Genre *', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedGenre,
-                          isExpanded: true,
-                          items: _dbGenres.map((String genre) {
-                            return DropdownMenuItem<String>(value: genre, child: Text(genre));
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setStateDialog(() => selectedGenre = newValue!);
-                          },
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: selectedGenre,
+                            isExpanded: true,
+                            items: _dbGenres.map((String genre) {
+                              return DropdownMenuItem<String>(value: genre, child: Text(genre));
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              setStateDialog(() => selectedGenre = newValue!);
+                            },
+                          ),
                         ),
                       ),
                     ),
@@ -137,63 +144,63 @@ class _HomePageState extends State<HomePage> {
 
                     Row(
                       children: [
-                        Expanded(child: _buildTextField('Pub. First Name', 'First Name', controller: publisherFirstNameController)),
+                        Expanded(child: _buildTextField('Publisher', 'Publisher', controller: publisherController)),
                         const SizedBox(width: 12),
-                        Expanded(child: _buildTextField('Pub. Last Name', 'Last Name', controller: publisherLastNameController)),
-                      ],
-                    ),
-                    Row(
-                      children: [
                         Expanded(child: _buildTextField('Year', '2024', controller: yearController)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildTextField('Copies', '1', controller: copiesController)),
                       ],
                     ),
                     Row(
                       children: [
                         Expanded(child: _buildTextField('ISBN', '978-...', controller: isbnController)),
                         const SizedBox(width: 12),
-                        Expanded(child: _buildTextField('Shelf', 'A-01', controller: shelfController)),
+                        Expanded(child: _buildTextField('Copies', '1', controller: copiesController)),
                       ],
                     ),
-                    _buildTextField('Language', 'English', controller: TextEditingController(text: 'English')),
+                    _buildTextField('Shelf', 'A-01', controller: shelfController), 
 
                     const SizedBox(height: 20),
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('Cancel', style: TextStyle(color: Colors.black87)),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              if (titleController.text.isNotEmpty && authorFirstNameController.text.isNotEmpty) {
-                                final success = await _bookService.createBook({
-                                  'BookTitle': titleController.text,
-                                  'AuthorFirstName': authorFirstNameController.text,
-                                  'AuthorLastName': authorLastNameController.text,
-                                  'CategoryName': selectedGenre == 'All Genres' ? 'Fiction' : selectedGenre,
-                                  'PublisherFirstName': publisherFirstNameController.text.isEmpty ? 'Unknown' : publisherFirstNameController.text,
-                                  'PublisherLastName': publisherLastNameController.text.isEmpty ? 'Unknown' : publisherLastNameController.text,
-                                  'BookDescription': descriptionController.text,
-                                  'BookShelf': shelfController.text,
-                                  'BookLanguage': 'English', // default
-                                  'BookPublicationYear': int.tryParse(yearController.text) ?? 2024,
-                                  'BookIsbn': isbnController.text,
-                                  'BookTotalCopies': int.tryParse(copiesController.text) ?? 1,
-                                });
-                                if (success) {
-                                  _fetchBooks();
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                if (titleController.text.isNotEmpty && authorController.text.isNotEmpty) {
+                                  setState(() {
+                                    books.add(Book(
+                                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                                      title: titleController.text,
+                                      author: authorController.text,
+                                      genre: selectedGenre == 'All Genres' ? 'Fiction' : selectedGenre,
+                                      rating: 4.0,
+                                      isAvailable: true,
+                                    ));
+                                  });
                                   Navigator.pop(context);
                                 }
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
-                            child: const Text('Add Book', style: TextStyle(color: Colors.white)),
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _primaryTeal,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('Add Book', style: TextStyle(color: Colors.white)),
+                            ),
                           ),
                         ),
                       ],
@@ -238,10 +245,13 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddBookDialog,
-        backgroundColor: _primaryTeal,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: FloatingActionButton(
+          onPressed: _showAddBookDialog,
+          backgroundColor: _primaryTeal,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
       body: SafeArea(
         child: Column(
@@ -259,36 +269,52 @@ class _HomePageState extends State<HomePage> {
                         child: const Icon(Icons.menu_book, color: Colors.white, size: 24),
                       ),
                       const SizedBox(width: 12),
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('LibraryMate', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                          Text('Discover & Borrow Books', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          const Text('LibraryMate', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                          Text('Discover & Borrow Books', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                         ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
+                  // Search Bar
                   TextField(
-                    onChanged: (value) => setState(() => _searchQuery = value),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
                     decoration: InputDecoration(
                       hintText: 'Search by title, author...',
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
                       filled: true,
                       fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide(color: Colors.grey[300]!)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide(color: Colors.grey[300]!)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0),
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // Dropdown Filters
                   Row(
                     children: [
                       Expanded(
                         child: _buildInteractiveFilterDropdown(
                           value: _selectedGenreFilter,
                           items: _dbGenres,
-                          onChanged: (value) => setState(() => _selectedGenreFilter = value!),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedGenreFilter = value!;
+                            });
+                          },
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -296,7 +322,11 @@ class _HomePageState extends State<HomePage> {
                         child: _buildInteractiveFilterDropdown(
                           value: _selectedAuthorFilter,
                           items: _getAuthors(),
-                          onChanged: (value) => setState(() => _selectedAuthorFilter = value!),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedAuthorFilter = value!;
+                            });
+                          },
                         ),
                       ),
                     ],
@@ -305,24 +335,38 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
+            // Body Section
             Expanded(
               child: Container(
                 color: const Color(0xFFF5F7F9),
                 child: Column(
                   children: [
+                    // View Toggles & Count
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12),
                       child: Row(
                         children: [
                           const Icon(Icons.tune, size: 16, color: Colors.grey),
                           const SizedBox(width: 4),
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _sortBy,
-                              icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B), fontSize: 14),
-                              items: ['Recently Added', 'Most Popular', 'From A to Z'].map((String value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-                              onChanged: (newValue) => setState(() => _sortBy = newValue!),
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _sortBy,
+                                icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B), fontSize: 14),
+                                items: ['Recently Added', 'Most Popular', 'From A to Z'].map((String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  );
+                                }).toList(),
+                                onChanged: (newValue) {
+                                  setState(() {
+                                    _sortBy = newValue!;
+                                  });
+                                },
+                              ),
                             ),
                           ),
                           const Spacer(),
@@ -335,15 +379,14 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
 
+                    // Catalog Area
                     Expanded(
-                      child: _isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : RefreshIndicator(
-                              onRefresh: _fetchBooks,
-                              child: _isGridView
-                                  ? _buildGridView(_getFilteredAndSortedBooks())
-                                  : _buildListView(_getFilteredAndSortedBooks()),
-                            ),
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                        child: _isGridView 
+                            ? _buildGridView(_getFilteredAndSortedBooks()) 
+                            : _buildListView(_getFilteredAndSortedBooks()),
+                      ),
                     ),
                   ],
                 ),
@@ -355,18 +398,34 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildInteractiveFilterDropdown({required String value, required List<String> items, required ValueChanged<String?> onChanged}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey[300]!)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black),
-          items: items.map((String item) => DropdownMenuItem(value: item, child: Text(item, overflow: TextOverflow.ellipsis))).toList(),
-          onChanged: onChanged,
+  Widget _buildInteractiveFilterDropdown({
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: value,
+            isExpanded: true,
+            icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black),
+            items: items.map((String item) {
+              return DropdownMenuItem<String>(
+                value: item,
+                child: Text(item, overflow: TextOverflow.ellipsis),
+              );
+            }).toList(),
+            onChanged: onChanged,
+          ),
         ),
       ),
     );
@@ -374,15 +433,23 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildViewToggle(IconData icon, bool isGrid) {
     bool isActive = _isGridView == isGrid;
-    return GestureDetector(
-      onTap: () => setState(() => _isGridView = isGrid),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(color: isActive ? _primaryTeal : Colors.transparent, borderRadius: BorderRadius.circular(6)),
-        child: Icon(icon, size: 20, color: isActive ? Colors.white : Colors.grey),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _isGridView = isGrid),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: isActive ? _primaryTeal : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 20, color: isActive ? Colors.white : Colors.grey),
+        ),
       ),
     );
   }
+
+  // --- Views ---
 
   Widget _buildListView(List<Book> displayBooks) {
     return ListView.builder(
@@ -394,20 +461,34 @@ class _HomePageState extends State<HomePage> {
           isFavorite: book.isFavorite,
           child: Container(
             margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder: (context) => BookDetailScreen(bookId: book.id)));
-                  _fetchBooks();
+                onTap: () {
+                  // Najib's job: Navigator.push to book details !!!
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      Container(height: 100, width: 70, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.image, color: Colors.grey)),
+                      // Shared Placeholder Image
+                      Container(
+                        height: 100,
+                        width: 70,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.image, color: Colors.grey),
+                      ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
@@ -426,7 +507,7 @@ class _HomePageState extends State<HomePage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                _buildStatusPill(book.totalCopies > 0),
+                                _buildStatusPill(book.isAvailable),
                                 _buildRating(book.rating),
                               ],
                             )
@@ -447,30 +528,51 @@ class _HomePageState extends State<HomePage> {
   Widget _buildGridView(List<Book> displayBooks) {
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.6, crossAxisSpacing: 16, mainAxisSpacing: 16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.6, // Adjusted for image + content
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
       itemCount: displayBooks.length,
       itemBuilder: (context, index) {
         final book = displayBooks[index];
         return AnimatedBookFrame(
           isFavorite: book.isFavorite,
           child: Container(
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder: (context) => BookDetailScreen(bookId: book.id)));
-                  _fetchBooks();
+                onTap: () {
+                  // najib's job: Navigator.push to book details
                 },
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Image Area (Shared Cover)
                     Expanded(
                       child: Stack(
                         children: [
-                          Container(decoration: const BoxDecoration(color: Color(0xFFE2E8F0), borderRadius: BorderRadius.vertical(top: Radius.circular(16))), child: const Center(child: Icon(Icons.image, size: 50, color: Colors.grey))),
-                          Positioned(top: 8, right: 8, child: _buildFavoriteIcon(book))
+                          Container(
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                            ),
+                            child: const Center(child: Icon(Icons.image, size: 50, color: Colors.grey)),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: _buildFavoriteIcon(book),
+                          )
                         ],
                       ),
                     ),
@@ -483,7 +585,7 @@ class _HomePageState extends State<HomePage> {
                           const SizedBox(height: 2),
                           Text(book.author, style: TextStyle(color: Colors.grey[500], fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 10),
-                          _buildStatusPill(book.totalCopies > 0),
+                          _buildStatusPill(book.isAvailable),
                           const SizedBox(height: 10),
                           _buildRating(book.rating),
                         ],
@@ -605,3 +707,4 @@ class _AnimatedBookFrameState extends State<AnimatedBookFrame> with SingleTicker
     );
   }
 }
+
